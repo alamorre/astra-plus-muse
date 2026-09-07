@@ -1,0 +1,4 @@
+interface:
+  display_name: "Astra plus Muse"
+  short_description: "Muse implements small PRs; Astra decides and reviews"
+  default_prompt: "Use $astra-plus-muse to delegate small GitHub issues to Muse 1.3 Spark in YOLO mode, with sparse monitoring and Astra review before authorized merges."
