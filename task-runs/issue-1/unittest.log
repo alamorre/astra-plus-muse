@@ -1,0 +1,35 @@
+test_ascii_counts_are_exact (test_compact_handoff.BudgetCorrectnessTests.test_ascii_counts_are_exact) ... ok
+test_default_budget_applies (test_compact_handoff.BudgetCorrectnessTests.test_default_budget_applies) ... ok
+test_exact_boundary_is_not_truncated (test_compact_handoff.BudgetCorrectnessTests.test_exact_boundary_is_not_truncated) ... ok
+test_multibyte_continuation_pointer_survives_whole (test_compact_handoff.BudgetCorrectnessTests.test_multibyte_continuation_pointer_survives_whole) ... ok
+test_multibyte_input_stays_within_byte_budget (test_compact_handoff.BudgetCorrectnessTests.test_multibyte_input_stays_within_byte_budget) ... ok
+test_never_oversized_across_budgets_and_scripts (test_compact_handoff.BudgetCorrectnessTests.test_never_oversized_across_budgets_and_scripts) ... ok
+test_small_budget_raises_instead_of_partial_marker (test_compact_handoff.BudgetCorrectnessTests.test_small_budget_raises_instead_of_partial_marker) ... ok
+test_large_payload_is_bounded_with_visible_continuation (test_compact_handoff.CompactHandoffTests.test_large_payload_is_bounded_with_visible_continuation) ... ok
+test_measurement_is_reproducible (test_compact_handoff.CompactHandoffTests.test_measurement_is_reproducible) ... ok
+test_missing_checks_are_not_a_pass (test_compact_handoff.CompactHandoffTests.test_missing_checks_are_not_a_pass) ... ok
+test_missing_required_field_is_rejected (test_compact_handoff.CompactHandoffTests.test_missing_required_field_is_rejected) ... ok
+test_non_object_inputs_raise_value_error (test_compact_handoff.CompactHandoffTests.test_non_object_inputs_raise_value_error) ... ok
+test_not_run_check_may_omit_returncode (test_compact_handoff.CompactHandoffTests.test_not_run_check_may_omit_returncode) ... ok
+test_skipped_check_keeps_actual_rc_zero (test_compact_handoff.CompactHandoffTests.test_skipped_check_keeps_actual_rc_zero) ... ok
+test_small_payload_is_unbounded_and_measured (test_compact_handoff.CompactHandoffTests.test_small_payload_is_unbounded_and_measured) ... ok
+test_cli_rejects_missing_and_invalid_input (test_compact_handoff.HelperCliTests.test_cli_rejects_missing_and_invalid_input) ... ok
+test_cli_renders_handoff_json_within_budget (test_compact_handoff.HelperCliTests.test_cli_renders_handoff_json_within_budget) ... ok
+test_cli_uses_payload_continuation_pointer (test_compact_handoff.HelperCliTests.test_cli_uses_payload_continuation_pointer) ... ok
+test_all_four_kinds_render_within_default_budget (test_compact_handoff.MeasurementFixtureTests.test_all_four_kinds_render_within_default_budget) ... ok
+test_shaped_fixture_emits_actual_sizes (test_compact_handoff.MeasurementFixtureTests.test_shaped_fixture_emits_actual_sizes) ... ok
+test_empty_prompt_stops_before_launch (test_run_muse.LauncherTests.test_empty_prompt_stops_before_launch) ... ok
+test_existing_attempt_is_not_overwritten_or_relaunched (test_run_muse.LauncherTests.test_existing_attempt_is_not_overwritten_or_relaunched) ... ok
+test_explicit_overrides_are_used (test_run_muse.LauncherTests.test_explicit_overrides_are_used) ... ok
+test_failed_worker_keeps_evidence_and_nonzero_status (test_run_muse.LauncherTests.test_failed_worker_keeps_evidence_and_nonzero_status) ... ok
+test_incompatible_cli_stops_before_launch (test_run_muse.LauncherTests.test_incompatible_cli_stops_before_launch) ... ok
+test_launches_explicit_model_yolo_and_limits_with_literal_paths (test_run_muse.LauncherTests.test_launches_explicit_model_yolo_and_limits_with_literal_paths) ... ok
+test_missing_cli_is_reported_without_fallback (test_run_muse.LauncherTests.test_missing_cli_is_reported_without_fallback) ... ok
+test_nonpositive_budget_stops_before_launch (test_run_muse.LauncherTests.test_nonpositive_budget_stops_before_launch) ... ok
+
+----------------------------------------------------------------------
+Ran 28 tests in 1.345s
+
+OK
+
+compact=395 verbose=37195 truncated=2000 omitted=35373

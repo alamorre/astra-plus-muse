@@ -14,8 +14,9 @@ and the local continuation path. Required fields: `kind` (one of `initial`,
 `base_sha`, `head_sha`, `state`, `next_action`. Optional: `pr_url`,
 `changed_files`, `checks` (each with explicit `name` and `returncode` plus a
 log path), `findings`, `continuation`. A missing check renders as `not-run`;
-a skipped check keeps its nonzero/declared return code and the word
-`skipped`. Neither is a pass.
+only a `not-run` check may omit its return code. A skipped check keeps its
+actual return code — including `rc=0` when the command exited zero while
+skipping its tests — plus the word `skipped`. Neither is a pass.
 
 ## Staged retrieval
 
@@ -44,11 +45,14 @@ tests, and open/merged PRs before proposing. When the behavior already
 exists, return `already implemented` with citations instead of a duplicate
 proposal.
 
-Example (#154 shape): a planner proposes keep-playable timing/restart
-persistence. Evidence inspection finds the existing functions and their
-tests already merged via PR #154, which Astra confirms immediately. The
-correct planner output is `already implemented — see <file:symbol> and
-<test-file:test-name>, merged in PR #154`, not a new issue. An unsupported
+Historical example (another repository, already-implemented rejection): a
+planner proposed keep-playable timing/restart persistence. Evidence
+inspection found `WorkbenchStore.public` and `WorkbenchStore.record_kept_playable`
+in `website/backend/workbench.py` with `test_reopen_preserves_sources_selection_candidates_audio_feedback_and_delivery`
+and `test_first_kept_playable_requires_both_an_actual_keep_and_successful_delivery`
+in `tests/test_workbench.py`, already merged via `alamorre/synth-parrot` PR #154,
+which Astra confirmed immediately. The correct planner output was
+`already implemented` with those citations, not a new issue. An unsupported
 "no existing coverage" assertion without such citations is rejected.
 
 ## End-to-end examples
@@ -121,6 +125,25 @@ next: <one bounded continuation or escalate to astra>
 continued-at: task-runs/42/handoff.json
 ```
 
+## Rendering command
+
+Render a handoff JSON file from the repository root with its prescribed
+interpreter (`<PYTHON>` below); the payload's `continuation` field supplies
+the pointer when present:
+
+```sh
+<PYTHON> skills/astra-plus-muse/scripts/compact_handoff.py task-runs/issue-1/handoff.json --budget 2000
+```
+
+Import recipe for staged tooling (no third-party dependencies):
+
+```python
+import sys
+sys.path.insert(0, "skills/astra-plus-muse/scripts")
+from compact_handoff import render  # or render_text, enforce_budget, measure_bytes
+bounded, truncated, omitted = render(payload, budget_bytes=2000)
+```
+
 ## Reproducible payload measurement
 
 Run from the repository root with its prescribed interpreter:
@@ -129,13 +152,16 @@ Run from the repository root with its prescribed interpreter:
 <PYTHON> -m unittest discover -s tests -v  # includes compact-handoff fixtures
 ```
 
-On the checked-in shaped fixture (compact record above versus the same
-record plus 400 PR-body lines and 400 transcript lines), the helper measured
-**573 bytes** for the compact handoff and **19395 bytes** for the verbose
-variant. A 300-file revised payload bounded at the default budget measured
-**2000 bytes** with **2558 bytes** omitted behind a visible marker naming
-`task-runs/issue-1/handoff.json`. Re-run the fixture to reproduce these
-byte counts; they describe this example only.
+The shaped fixture is built in exactly one place,
+`compact_handoff.measurement_fixture()`: the fixed `initial` record versus
+the same record plus 400 PR-body lines and 400 transcript lines. It measured
+**395 bytes** for the compact handoff, **37195 bytes** for the verbose
+variant, and **2000 bytes** for the budgeted truncation with **35373 bytes**
+omitted behind a complete marker naming `task-runs/issue-1/handoff.json`.
+Re-run the fixture to reproduce these byte counts; they describe this
+example only — no tokenizer, dollar, or savings inference is derived from
+them. All four handoff kinds (`initial`, `unchanged`, `revised`,
+`stopped-without-pr`) render within the default budget untruncated.
 
 Existing guarantees are unchanged: explicit worker model and limits, no
 worker merges or self-approval, no bypassed checks, Astra's personal

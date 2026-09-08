@@ -6,7 +6,17 @@ truncation explicit; full evidence stays in local files for staged retrieval.
 It never treats missing or skipped checks as passes.
 """
 
+import argparse
+import json
+import sys
+from pathlib import Path
+
+
 DEFAULT_BUDGET_BYTES = 2000
+
+MEASUREMENT_PR_BODY_LINES = 400
+MEASUREMENT_TRANSCRIPT_LINES = 400
+MEASUREMENT_CONTINUATION = "task-runs/issue-1/handoff.json"
 
 REQUIRED_FIELDS = ("kind", "task_url", "target", "base_sha", "head_sha",
                    "state", "next_action")
@@ -44,21 +54,33 @@ def validate(payload):
             if not isinstance(check, dict):
                 errors.append("each check must be an object")
                 continue
-            if not check.get("name"):
+            if not isinstance(check.get("name"), str) or not check["name"].strip():
                 errors.append("each check needs a name")
-            if check.get("returncode") is None:
-                errors.append(f"check {check.get('name', '?')!r} needs an explicit returncode")
-            # A skip is never a pass: it must say so explicitly.
-            status = str(check.get("status", "")).lower()
-            if status == "skipped" and str(check.get("returncode")) == "0":
+            status = check.get("status", "")
+            if status is not None and not isinstance(status, str):
                 errors.append(
-                    f"check {check.get('name', '?')!r}: skipped must not use returncode 0")
+                    f"check {check.get('name', '?')!r}: status must be a string")
+            log = check.get("log")
+            if log is not None and not isinstance(log, str):
+                errors.append(
+                    f"check {check.get('name', '?')!r}: log must be a path string")
+            # A skip is never a pass, but the actual return code is
+            # preserved: a command can exit 0 while skipping its tests,
+            # so rc=0 with an explicit skipped status is rendered as
+            # skipped, never rewritten. Only a not-run check may omit
+            # its return code, and it never renders as a pass either.
+            if check.get("returncode") is None and \
+                    str(status or "").lower() != "not-run":
+                errors.append(
+                    f"check {check.get('name', '?')!r} needs an explicit returncode")
     return errors
 
 
 def _check_line(check):
-    status = check.get("status", "")
-    line = f"- {check.get('name')}: rc={check.get('returncode')}"
+    status = check.get("status") or ""
+    line = f"- {check.get('name')}"
+    if check.get("returncode") is not None:
+        line += f": rc={check.get('returncode')}"
     if status:
         line += f" ({status})"
     if check.get("log"):
@@ -95,47 +117,193 @@ def render_text(payload):
     return "\n".join(lines) + "\n"
 
 
+def _truncation_marker(omitted_bytes, continuation):
+    """Build the complete truncation marker; it is never sliced."""
+    return (f"\n[truncated: omitted {omitted_bytes} bytes; "
+            f"full record at {continuation}; "
+            "retrieve staged chunks per references/compact-handoffs.md; "
+            "unreviewed remainder is not reviewed]\n")
+
+
 def enforce_budget(text, budget_bytes=DEFAULT_BUDGET_BYTES, continuation="local file"):
     """Bound text to budget_bytes with a visible truncation marker.
 
     Returns (bounded_text, truncated, omitted_bytes). Untruncated text is
-    returned unchanged; truncated text ends with a marker naming the omitted
-    byte count and where the full record lives. Never returns oversized text.
+    returned unchanged; truncated text is a UTF-8 character-boundary head
+    plus one complete marker naming the omitted byte count and the local
+    continuation path. The displayed count, the returned count, and the
+    actual lost bytes are all equal: len(text.encode) minus the byte
+    length of the decoded head. The marker is never sliced: when even the
+    marker plus one head byte cannot fit, this raises ValueError instead
+    of emitting a misleading partial marker.
     """
-    if budget_bytes <= 0:
-        raise ValueError("budget_bytes must be positive")
+    if not isinstance(text, str):
+        raise ValueError("text must be a string")
+    if not isinstance(budget_bytes, int) or isinstance(budget_bytes, bool) \
+            or budget_bytes <= 0:
+        raise ValueError("budget_bytes must be a positive integer")
+    if not isinstance(continuation, str) or not continuation:
+        raise ValueError("continuation must be a nonempty path string")
     raw = text.encode("utf-8")
-    if len(raw) <= budget_bytes:
+    total = len(raw)
+    if total <= budget_bytes:
         return text, False, 0
-    # Reserve room for the omitted-count segment; fit the head exactly.
-    omitted = len(raw)  # upper bound; refined below
-    marker = f"\n[truncated: omitted {omitted} bytes; see {continuation}]\n"
-    budget = budget_bytes
-    head = raw[:max(0, budget - len(marker.encode("utf-8")))]
-    # Avoid splitting a UTF-8 sequence.
-    while head and (budget - len(head) < len(marker.encode("utf-8"))):
-        head = head[:-1]
-    try:
-        head_text = head.decode("utf-8")
-    except UnicodeDecodeError:
-        head_text = head.decode("utf-8", errors="ignore")
-    omitted = len(raw) - len(head)
-    marker = (f"\n[truncated: omitted {omitted} bytes; full record at {continuation}; "
-              "retrieve staged chunks per references/compact-handoffs.md; "
-              "unreviewed remainder is not reviewed]\n")
-    marker_bytes = marker.encode("utf-8")
-    if len(marker_bytes) >= budget:
-        marker = marker[:budget]
-        return marker, True, len(raw)
-    head = raw[:budget - len(marker_bytes)]
-    head_text = head.decode("utf-8", errors="ignore")
-    return head_text + marker, True, len(raw) - len(head)
+    # The marker names the omitted count, so reserve room for the widest
+    # possible count: omitted can never exceed total, hence never needs
+    # more digits than total. One cut, no iteration, no oscillation.
+    digits_total = len(str(total))
+    max_marker = len(_truncation_marker(total, continuation).encode("utf-8"))
+    if max_marker >= budget_bytes:
+        raise ValueError(
+            f"budget {budget_bytes} bytes cannot fit the "
+            f"{max_marker}-byte truncation marker; "
+            "raise the budget or shorten the continuation path")
+    allowance = budget_bytes - (max_marker - digits_total) - digits_total
+    # raw is valid UTF-8, so a prefix cut can only strand a trailing
+    # partial sequence; ignoring it drops exactly those bytes, and the
+    # head stays on a character boundary within the byte budget even
+    # when the continuation pointer itself is multibyte.
+    head_text = raw[:allowance].decode("utf-8", errors="ignore")
+    head_bytes = len(head_text.encode("utf-8"))
+    omitted = total - head_bytes
+    marker = _truncation_marker(omitted, continuation)
+    return head_text + marker, True, omitted
 
 
 def render(payload, budget_bytes=DEFAULT_BUDGET_BYTES, continuation="local file"):
     """Validate, render, and bound a handoff payload in one step."""
+    if not isinstance(payload, dict):
+        raise ValueError("payload must be an object")
     cont = payload.get("continuation") or continuation
     text = render_text(payload)
     bounded, truncated, omitted = enforce_budget(
         text, budget_bytes=budget_bytes, continuation=cont)
     return bounded, truncated, omitted
+
+
+def example_payload(kind="initial"):
+    """Return a small fixed handoff payload of the given kind.
+
+    Single construction site for the examples quoted in
+    references/compact-handoffs.md and the tests below; every kind
+    renders within the default budget without truncation.
+    """
+    payload = {
+        "kind": kind,
+        "task_url": "https://github.com/OWNER/REPO/issues/42",
+        "target": "main",
+        "base_sha": "0" * 40,
+        "head_sha": "9" * 40,
+        "state": "ready",
+        "pr_url": "https://github.com/OWNER/REPO/pull/43",
+        "changed_files": ["skills/area/SKILL.md", "tests/test_area.py"],
+        "checks": [
+            {"name": "unittest", "returncode": 0,
+             "log": "task-runs/42/unittest.log"},
+        ],
+        "findings": "none",
+        "next_action": "astra review head, verify, then merge if authorized",
+    }
+    if kind == "unchanged":
+        payload["state"] = "waiting-ci"
+        payload["checks"] = []
+        payload["next_action"] = "recheck at <time>; no action until CI changes"
+        payload["continuation"] = "task-runs/42/handoff.json"
+    elif kind == "revised":
+        payload["state"] = "ready-after-fixes"
+        payload["checks"] = [
+            {"name": "unittest", "returncode": 0,
+             "log": "task-runs/42/unittest-r2.log"},
+        ]
+        payload["findings"] = "prior findings resolved at new head; see diff"
+        payload["next_action"] = \
+            "astra re-review new head only, verify, then merge if authorized"
+    elif kind == "stopped-without-pr":
+        del payload["pr_url"]
+        payload["state"] = "stopped-blocked"
+        payload["changed_files"] = ["src/area.py (uncommitted)"]
+        payload["checks"] = [
+            {"name": "unittest", "returncode": 1,
+             "log": "task-runs/42/unittest.log"},
+        ]
+        payload["findings"] = "<concrete blocker and evidence>"
+        payload["next_action"] = "<one bounded continuation or escalate>"
+        payload["continuation"] = "task-runs/42/handoff.json"
+    return payload
+
+
+def measurement_fixture():
+    """Build the shaped compact-vs-verbose measurement fixture.
+
+    Returns a dict with the compact handoff text, the verbose variant
+    (the same record plus MEASUREMENT_PR_BODY_LINES PR-body lines and
+    MEASUREMENT_TRANSCRIPT_LINES transcript lines), and the budgeted
+    truncation of that verbose text with its byte sizes. This is the
+    one authoritative construction site: tests and documentation
+    derive their numbers from here instead of hardcoding them.
+    """
+    compact_text = render_text(example_payload("initial"))
+    verbose_text = compact_text + "".join(
+        f"pr-body line {i:04d}: <review discussion excerpt>\n"
+        for i in range(MEASUREMENT_PR_BODY_LINES))
+    verbose_text += "".join(
+        f"transcript line {i:04d}: <worker event excerpt>\n"
+        for i in range(MEASUREMENT_TRANSCRIPT_LINES))
+    bounded_text, truncated, omitted = enforce_budget(
+        verbose_text, budget_bytes=DEFAULT_BUDGET_BYTES,
+        continuation=MEASUREMENT_CONTINUATION)
+    return {
+        "compact_text": compact_text,
+        "verbose_text": verbose_text,
+        "bounded_text": bounded_text,
+        "truncated": truncated,
+        "omitted": omitted,
+        "compact_bytes": measure_bytes(compact_text),
+        "verbose_bytes": measure_bytes(verbose_text),
+        "bounded_bytes": measure_bytes(bounded_text),
+        "continuation": MEASUREMENT_CONTINUATION,
+    }
+
+
+def build_parser():
+    """Return the CLI parser for the helper."""
+    result = argparse.ArgumentParser(
+        description="Validate, render, and byte-bound a compact "
+                    "coordinator handoff from a JSON payload file.")
+    result.add_argument("handoff", type=Path,
+                        help="path to a handoff JSON payload; its "
+                             "continuation field supplies the pointer "
+                             "when present")
+    result.add_argument("--budget", type=int, default=DEFAULT_BUDGET_BYTES,
+                        help="coordinator-visible byte budget")
+    result.add_argument("--continuation", default="local file",
+                        help="fallback continuation pointer when the "
+                             "payload has none")
+    return result
+
+
+def main(argv=None):
+    """Render the handoff JSON file to stdout within the byte budget."""
+    args = build_parser().parse_args(argv)
+    try:
+        payload = json.loads(args.handoff.read_text(encoding="utf-8"))
+    except OSError as error:
+        print(f"compact_handoff: cannot read {args.handoff}: {error}",
+              file=sys.stderr)
+        return 2
+    except ValueError as error:
+        print(f"compact_handoff: invalid JSON in {args.handoff}: {error}",
+              file=sys.stderr)
+        return 2
+    try:
+        bounded, _, _ = render(payload, budget_bytes=args.budget,
+                               continuation=args.continuation)
+    except ValueError as error:
+        print(f"compact_handoff: {error}", file=sys.stderr)
+        return 2
+    sys.stdout.write(bounded)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
