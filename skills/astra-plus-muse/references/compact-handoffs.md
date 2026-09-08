@@ -47,7 +47,7 @@ proposal.
 
 Historical example (another repository, already-implemented rejection): a
 planner proposed keep-playable timing/restart persistence. Evidence
-inspection found `WorkbenchStore.public` and `WorkbenchStore.record_kept_playable`
+inspection found `Workbench.public` and `Workbench.record_kept_playable`
 in `website/backend/workbench.py` with `test_reopen_preserves_sources_selection_candidates_audio_feedback_and_delivery`
 and `test_first_kept_playable_requires_both_an_actual_keep_and_successful_delivery`
 in `tests/test_workbench.py`, already merged via `alamorre/synth-parrot` PR #154,

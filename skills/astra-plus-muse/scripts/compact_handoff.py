@@ -125,29 +125,32 @@ def _truncation_marker(omitted_bytes, continuation):
             "unreviewed remainder is not reviewed]\n")
 
 
-def enforce_budget(text, budget_bytes=DEFAULT_BUDGET_BYTES, continuation="local file"):
+def enforce_budget(text, budget_bytes=DEFAULT_BUDGET_BYTES, continuation=None):
     """Bound text to budget_bytes with a visible truncation marker.
 
     Returns (bounded_text, truncated, omitted_bytes). Untruncated text is
-    returned unchanged; truncated text is a UTF-8 character-boundary head
-    plus one complete marker naming the omitted byte count and the local
-    continuation path. The displayed count, the returned count, and the
-    actual lost bytes are all equal: len(text.encode) minus the byte
-    length of the decoded head. The marker is never sliced: when even the
-    marker plus one head byte cannot fit, this raises ValueError instead
-    of emitting a misleading partial marker.
+    returned unchanged and needs no pointer. Truncated text is a UTF-8
+    character-boundary head plus one complete marker naming the omitted
+    byte count and the actual continuation path; truncation with no
+    actual pointer raises ValueError instead of inventing one. The
+    displayed count, the returned count, and the actual lost bytes are
+    all equal: len(text.encode) minus the byte length of the decoded
+    head. The marker is never sliced: when even the marker plus one
+    head byte cannot fit, this raises ValueError instead of emitting a
+    misleading partial marker.
     """
     if not isinstance(text, str):
         raise ValueError("text must be a string")
     if not isinstance(budget_bytes, int) or isinstance(budget_bytes, bool) \
             or budget_bytes <= 0:
         raise ValueError("budget_bytes must be a positive integer")
-    if not isinstance(continuation, str) or not continuation:
-        raise ValueError("continuation must be a nonempty path string")
     raw = text.encode("utf-8")
     total = len(raw)
     if total <= budget_bytes:
         return text, False, 0
+    if not isinstance(continuation, str) or not continuation:
+        raise ValueError("truncation needs an actual continuation pointer; "
+                         "pass one instead of using a placeholder")
     # The marker names the omitted count, so reserve room for the widest
     # possible count: omitted can never exceed total, hence never needs
     # more digits than total. One cut, no iteration, no oscillation.
@@ -170,8 +173,12 @@ def enforce_budget(text, budget_bytes=DEFAULT_BUDGET_BYTES, continuation="local 
     return head_text + marker, True, omitted
 
 
-def render(payload, budget_bytes=DEFAULT_BUDGET_BYTES, continuation="local file"):
-    """Validate, render, and bound a handoff payload in one step."""
+def render(payload, budget_bytes=DEFAULT_BUDGET_BYTES, continuation=None):
+    """Validate, render, and bound a handoff payload in one step.
+
+    Short output needs no pointer; truncation with no actual pointer
+    (neither payload continuation nor an explicit one) raises ValueError.
+    """
     if not isinstance(payload, dict):
         raise ValueError("payload must be an object")
     cont = payload.get("continuation") or continuation
@@ -276,9 +283,10 @@ def build_parser():
                              "when present")
     result.add_argument("--budget", type=int, default=DEFAULT_BUDGET_BYTES,
                         help="coordinator-visible byte budget")
-    result.add_argument("--continuation", default="local file",
+    result.add_argument("--continuation", default=None,
                         help="fallback continuation pointer when the "
-                             "payload has none")
+                             "payload has none; defaults to the absolute "
+                             "input path")
     return result
 
 
@@ -296,8 +304,9 @@ def main(argv=None):
               file=sys.stderr)
         return 2
     try:
+        fallback = args.continuation or str(args.handoff.resolve())
         bounded, _, _ = render(payload, budget_bytes=args.budget,
-                               continuation=args.continuation)
+                               continuation=fallback)
     except ValueError as error:
         print(f"compact_handoff: {error}", file=sys.stderr)
         return 2

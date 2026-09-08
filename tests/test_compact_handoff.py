@@ -158,7 +158,8 @@ class BudgetCorrectnessTests(unittest.TestCase):
         self.assertEqual(bounded, "A" * 2000)
 
     def test_default_budget_applies(self):
-        bounded, truncated, omitted = ch.enforce_budget("A" * 5000)
+        bounded, truncated, omitted = ch.enforce_budget(
+            "A" * 5000, continuation="handoff.json")
         self.assertTrue(truncated)
         self.assertLessEqual(len(bounded.encode("utf-8")),
                              ch.DEFAULT_BUDGET_BYTES)
@@ -181,6 +182,24 @@ class BudgetCorrectnessTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ch.enforce_budget("A" * 5000, 0, "handoff.json")
 
+    def test_truncation_without_pointer_fails_loudly(self):
+        # No invented placeholder: truncation with no actual pointer
+        # raises instead of pointing at nothing.
+        with self.assertRaises(ValueError):
+            ch.enforce_budget("A" * 5000, 2000)
+        with self.assertRaises(ValueError):
+            ch.enforce_budget("A" * 5000, 2000, continuation="")
+        payload = sample(kind="revised")
+        payload["changed_files"] = [f"src/mod{i:03d}.py" for i in range(300)]
+        self.assertNotIn("continuation", payload)
+        with self.assertRaises(ValueError):
+            ch.render(payload, budget_bytes=2000)
+        # Short output still needs no pointer at all.
+        bounded, truncated, omitted = ch.render(sample())
+        self.assertFalse(truncated)
+        self.assertEqual(omitted, 0)
+        self.assertNotIn("truncated", bounded)
+
     def test_never_oversized_across_budgets_and_scripts(self):
         texts = ["A" * 5000, "資料" * 1000, "é" * 700 + "A" * 3000,
                  "x" * 1999 + "資料" * 500]
@@ -190,12 +209,13 @@ class BudgetCorrectnessTests(unittest.TestCase):
                 with self.subTest(total=total, budget=budget):
                     if total <= budget:
                         bounded, truncated, omitted = ch.enforce_budget(
-                            text, budget)
+                            text, budget, continuation="handoff.json")
                         self.assertFalse(truncated)
                         self.assertEqual(omitted, 0)
                         continue
                     try:
-                        bounded, _, omitted = ch.enforce_budget(text, budget)
+                        bounded, _, omitted = ch.enforce_budget(
+                            text, budget, continuation="handoff.json")
                     except ValueError:
                         continue  # marker cannot fit: honest refusal
                     self.assertLessEqual(len(bounded.encode("utf-8")), budget)
@@ -245,8 +265,7 @@ class HelperCliTests(unittest.TestCase):
             path.write_text(json.dumps(sample()), encoding="utf-8")
             result = self.run_cli(str(path), "--budget", "2000")
             self.assertEqual(result.returncode, 0, result.stderr)
-            expected, _, _ = ch.render(sample(), budget_bytes=2000,
-                                       continuation="local file")
+            expected, _, _ = ch.render(sample(), budget_bytes=2000)
             self.assertEqual(result.stdout, expected)
 
     def test_cli_uses_payload_continuation_pointer(self):
@@ -260,6 +279,35 @@ class HelperCliTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("task-runs/issue-1/handoff.json", result.stdout)
             self.assertLessEqual(len(result.stdout.encode("utf-8")), 2000)
+
+    def test_cli_falls_back_to_absolute_input_path(self):
+        # A 3000-char filename forces truncation; with no pointer field
+        # and no --continuation flag, the CLI falls back to the absolute
+        # input path instead of inventing a placeholder.
+        payload = sample()
+        payload["changed_files"] = ["x" * 3000 + ".md"]
+        self.assertNotIn("continuation", payload)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "handoff.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            result = self.run_cli(str(path), "--budget", "2000")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(str(path.resolve()), result.stdout)
+            self.assertIn("truncated: omitted", result.stdout)
+            self.assertLessEqual(len(result.stdout.encode("utf-8")), 2000)
+
+    def test_cli_payload_continuation_beats_flag(self):
+        payload = sample(kind="revised")
+        payload["changed_files"] = [f"src/mod{i:03d}.py" for i in range(300)]
+        payload["continuation"] = "task-runs/issue-1/handoff.json"
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "handoff.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            result = self.run_cli(str(path), "--budget", "2000",
+                                  "--continuation", "flag/fallback.json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("task-runs/issue-1/handoff.json", result.stdout)
+            self.assertNotIn("flag/fallback.json", result.stdout)
 
     def test_cli_rejects_missing_and_invalid_input(self):
         result = self.run_cli("/nonexistent/handoff.json")
