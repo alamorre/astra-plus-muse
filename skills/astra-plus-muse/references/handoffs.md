@@ -22,8 +22,11 @@ the issue contract below. Each should produce one reviewable PR or a bounded
 investigation result. Name dependencies, likely files, acceptance criteria,
 verification commands derived from this repository, and unresolved questions.
 Separate decisions needing Astra from routine implementation choices. Do not
-silently make architectural or compatibility decisions. Return the proposals
-and recommended order; stop before publication.
+silently make architectural or compatibility decisions. Cite exact inspected
+executable locations and existing PR/test evidence for any claimed gap, per
+[compact handoffs](compact-handoffs.md#planner-evidence-rule); return
+`already implemented` with citations when the behavior exists. Return the
+proposals and recommended order; stop before publication.
 <append issue contract>
 ```
 
@@ -90,10 +93,13 @@ Do not merge, enable auto-merge, push the target branch, approve your own work,
 change branch protections, or claim Astra reviewed anything. No force pushes
 unless the coordinator explicitly authorized a specific necessary operation.
 
-Return: issue and PR URL, branch and exact head SHA, behavior implemented,
-commands/outcomes and local log paths, skips/blockers, and remaining work. If the
-run cannot finish, preserve the changes and write a local handoff at <path>
-with the next concrete step. Never describe partial work as completed.
+Return the [compact handoff](compact-handoffs.md#handoff-contract) within its
+byte budget: issue and PR URL, target, base/head SHAs, terminal state,
+changed-file summary, checks with actual return codes and log paths,
+skips/blockers (never a pass), and the next action. Keep verbose logs local.
+If the run cannot finish, preserve the changes and write the full record at
+<path>, returning only the bounded handoff with its continuation pointer.
+Never describe partial work as completed.
 Work independently without routine progress messages to Astra. Keep verbose logs
 on disk. Your normal coordinator handoff is the completed PR and a compact final
 report; surface a design fork or concrete blocker when it prevents completion.
