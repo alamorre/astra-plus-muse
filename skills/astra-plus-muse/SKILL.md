@@ -103,11 +103,13 @@ do not busy-poll between checks. These are monitoring intervals, not blocking to
 waits; follow the host's wait limits. Adapt only for an explicit deadline, failure
 signal, user request, or resource concern. An active worker alone needs no intervention.
 
-On completion, read the compact handoff and PR diff. Retrieve only the relevant
-log excerpt when a failure or review question calls for it. Ask Muse for one
-concise blocker report if required, not a narrated replay. Keep coordinator status
-updates brief and do not wake Astra merely to narrate worker progress. A retry or
-continuation still needs a bounded task, never a fresh copy of the full history.
+On completion, read the compact handoff and PR diff. Keep coordinator-visible
+handoffs within the budget and retrieve the rest in stages per
+[compact handoffs](references/compact-handoffs.md); unfetched context is
+unreviewed. Ask Muse for one concise blocker report if required, not a
+narrated replay. Keep coordinator status updates brief and milestone-driven.
+A retry or continuation still needs a bounded task, never a fresh copy of
+the full history.
 
 ## Handle failures without spending in circles
 
