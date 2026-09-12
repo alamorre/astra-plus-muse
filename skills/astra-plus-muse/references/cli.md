@@ -43,7 +43,7 @@ processes before continuing. Do not start a second writer on the same worktree.
 
 ```sh
 muse exec --yolo --model muse-spark-1.3-contributor \
-  --reasoning-effort max --max-model-steps 40 \
+  --reasoning-effort xhigh --max-model-steps 40 \
   --max-tool-output-bytes 12000 \
   --workspace /absolute/path/to/issue-worktree \
   --prompt-file /absolute/path/to/filled-handoff.md --json
@@ -60,8 +60,10 @@ silently drop YOLO/model selection/limits, switch providers, or change credentia
 
 ## Reasoning configuration
 
-Use `max` for planning, implementation, and revisions unless the user/coordinator
-explicitly chooses another effort. Competency takes priority over token price.
+Use `xhigh` for planning, implementation, and revisions unless the user/coordinator
+explicitly chooses another effort. Extra high is the user-selected default because
+max was unavailable on the current Contributor account; this is an explicit choice,
+not an automatic fallback. Competency takes priority over token price.
 The launcher and direct invocation both pass the effort explicitly; the native
 CLI's `high` default is not used. Do not select `ultra` merely because it appears
 in CLI help: that does not establish a stronger backend mode.
@@ -70,15 +72,16 @@ in CLI help: that does not establish a stronger backend mode.
 available in Muse Code and Meta Model API, and its
 [evaluation methodology](https://research.meta.ai/static/muse-spark-1-3-multimodal-evaluation-methodology)
 uses max for Muse Spark 1.3. [CursorBench 4.0](https://cursor.com/cursorbench)
-reported 41.6% at max versus 32.6% at medium when checked on 2026-09-12. That
-comparison supports the default, but does not guarantee a gain in Muse Code or
+reported 37.5% at extra high, 41.6% at max, and 32.6% at medium when checked on
+2026-09-12. Max remains the stronger benchmark configuration; this evidence does
+not guarantee a gain in Muse Code or
 prove standard/Contributor parity or the meaning of `ultra`.
 
 Before first dispatch with a model/account/effort combination, verify support
 using a bounded harmless request in an empty temporary workspace. For example:
 
 ```sh
-muse exec --model muse-spark-1.3-contributor --reasoning-effort max \
+muse exec --model muse-spark-1.3-contributor --reasoning-effort xhigh \
   --max-model-steps 1 --workspace /absolute/path/to/empty-probe-workspace \
   --disable-shell --disable-write --disable-web-tools \
   --no-foreign-personal-context --no-session-log --json \
@@ -96,3 +99,8 @@ rejection as an access prerequisite, not an implementation defect. Resolve the
 entitlement or obtain explicit agreement on a supported model/effort before more
 work; do not purchase subscriptions, switch tiers, or downgrade automatically.
 The launcher retains failure logs and propagates the failure status without retry.
+
+The user subsequently selected `xhigh`; the same bounded check at extra high
+completed with exit 0 and final answer `OK`, without an effort fallback warning.
+This establishes compatibility for that account, not a competency benchmark or
+independent proof of effective backend effort.

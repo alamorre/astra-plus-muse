@@ -42,3 +42,14 @@ Do not choose `ultra` simply because its name sounds stronger or the CLI accepts
 - No inspected primary source ranks `ultra` above `max`, or documents an equivalence between them.
 - A change should request max explicitly in both launch paths, update the medium-first guidance, and preserve explicit user overrides. Before treating a run as max, inspect current model support and surface unsupported settings or fallback warnings rather than silently claiming max.
 - Keep the original scope and acceptance scenarios when comparing results. A representative repeated evaluation can assess local benefit; one trivial prompt cannot establish competency or prove which reasoning mode the backend served.
+
+## User decision and extra-high verification
+
+On 2026-09-12, after the max entitlement recheck failed, the user explicitly chose
+extra high (`xhigh`). This supersedes max as the implementation default while
+preserving the benchmark findings above. A bounded request using the same Muse
+Code 1.1.1 Contributor route at xhigh completed with exit code 0 and final answer
+`OK`, without an effort fallback warning. This verifies compatibility, not an
+independent measurement of effective backend effort or competency. The repository
+launcher, direct example, and installed skill now default to xhigh; max remains an
+explicit override requiring appropriate access.

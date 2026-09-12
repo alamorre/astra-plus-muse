@@ -57,7 +57,7 @@ class LauncherTests(unittest.TestCase):
         args = json.loads(self.capture.read_text())
         self.assertEqual(args, [
             "exec", "--yolo", "--model", "muse-spark-1.3-contributor",
-            "--reasoning-effort", "max", "--max-model-steps", "40",
+            "--reasoning-effort", "xhigh", "--max-model-steps", "40",
             "--max-tool-output-bytes", "12000", "--workspace", str(self.workspace),
             "--prompt-file", str(self.prompt), "--json",
         ])
@@ -79,7 +79,7 @@ class LauncherTests(unittest.TestCase):
         diagnostic = ("API error 400: reasoning_effort max requires an active "
                       "Muse Code subscription for model muse-spark-1.3-contributor")
         self.env.update(WORKER_EXIT="1", WORKER_DIAGNOSTIC=diagnostic)
-        result = self.run_launcher()
+        result = self.run_launcher("--reasoning-effort", "max")
         self.assertEqual(result.returncode, 1)
         invocation = json.loads((self.output / "invocation.json").read_text())["argv"]
         self.assertEqual(invocation[invocation.index("--reasoning-effort") + 1], "max")

@@ -87,7 +87,7 @@ instructions when the installed integration supports that; the verified CLI uses
 the contract to the task prompt and do not claim system-level enforcement.
 
 Use [the CLI reference](references/cli.md) to run the bundled launcher or invoke
-Muse directly. Set the model and run limits explicitly. Default to **max reasoning**
+Muse directly. Set the model and run limits explicitly. Default to **extra high (`xhigh`) reasoning**
 for planning, implementation, and revisions. Preserve a deliberate user/coordinator
 override; do not lower effort automatically for price or routine-task classification.
 Verify that the selected model/account supports the requested effort before

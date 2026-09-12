@@ -25,7 +25,7 @@ def parser():
     result.add_argument("--output-dir", type=Path, required=True)
     result.add_argument("--model", default="muse-spark-1.3-contributor",
                         help="explicit Muse model ID; no automatic fallback")
-    result.add_argument("--reasoning-effort", default="max",
+    result.add_argument("--reasoning-effort", default="xhigh",
                         choices=["none", "minimal", "low", "medium", "high",
                                  "xhigh", "max", "ultra"], help="worker reasoning effort")
     result.add_argument("--max-model-steps", type=positive_int, default=40,
