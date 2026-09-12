@@ -17,8 +17,9 @@ Approved strategic decisions and constraints: <facts>
 Relevant starting points: <files and existing issue/PR IDs>
 Planning limit: <batch size and bounded investigation>
 
-Search existing issues/PRs for overlapping work. Propose bite-sized issues using
-the issue contract below. Each should produce one reviewable PR or a bounded
+Inspect existing behavior and open/merged issues and PRs for overlapping work.
+Do not invent duplicate implementation to demonstrate this contract. Propose
+bite-sized issues using the issue contract below. Each should produce one reviewable PR or a bounded
 investigation result. Name dependencies, likely files, acceptance criteria,
 verification commands derived from this repository, and unresolved questions.
 Separate decisions needing Astra from routine implementation choices. Do not
@@ -26,7 +27,11 @@ silently make architectural or compatibility decisions. Cite exact inspected
 executable locations and existing PR/test evidence for any claimed gap, per
 [compact handoffs](compact-handoffs.md#planner-evidence-rule); return
 `already implemented` with citations when the behavior exists. Return the
-proposals and recommended order; stop before publication.
+proposals and recommended order; stop before publication. For cross-component
+work, draft concrete success/failure scenarios and name the existing acceptance
+boundary. Astra must inspect that boundary and personally approve the scenarios,
+verification, and plan against current contracts before dispatch. Flag unknown
+behavior for a bounded investigation rather than inventing a requirement.
 <append issue contract>
 ```
 
@@ -36,6 +41,19 @@ Use `gh issue create --repo <OWNER/REPO> --title <TITLE> --body-file <FILE>`; re
 existing issues before retrying a partially completed publication. Return URLs.
 
 ## Issue
+
+Use detail proportional to the change. Parent issues retain broad outcomes;
+bounded implementation children state what one PR proves and what stays in the
+parent. For cross-component work, Muse may draft the issue, but Astra owns writing
+or personally approving its concrete scenarios and acceptance boundary after
+inspecting the existing interface, integration seam, or validator. Resolve design
+forks before implementation; a bounded investigation is appropriate when the
+current behavior or policy is unknown.
+
+For simple isolated changes, a short outcome, scope/settled decisions, acceptance
+criterion (including relevant failure behavior), and exact verification command
+are sufficient. No mandatory preliminary investigation, extra planning run,
+multiple tests, or test-first requirement applies to every task.
 
 ```markdown
 ## Outcome
@@ -50,13 +68,98 @@ existing issues before retrying a partially completed publication. Return URLs.
 ## Acceptance criteria
 - [ ] <Observable outcome, including meaningful failure behavior.>
 
+## Acceptance scenarios (when integration complexity warrants them)
+- Success: Given <concrete starting state>, when <action>, then <observable result>.
+- Material failure: Given <invalid state/action>, reject or stop <operation> at
+  <boundary/time>, with <observable failure and relevant side-effect constraints>.
+- Acceptance boundary: <existing public interface, integration seam, or validator
+  and inspected source/test locations; Astra's approval of scenarios and plan>.
+
 ## Verification
-<Exact relevant test commands and required repository checks; prerequisites.>
+<Exact relevant commands and required repository checks. State what portable
+fixtures prove, what needs real integration prerequisites, and what the evidence
+cannot establish. Isolated helper tests are insufficient for integration outcomes.>
 
 ## Delivery
 One PR targeting <branch>. Link this issue. Astra must personally review the
 final revision before merge. This issue does not complete <remaining parent scope>.
 ```
+
+Once implemented, link the executable behavior tests and retained verification
+evidence; do not maintain a duplicate implementation guide in prose or rewrite
+historical issue/evidence records. Project-specific invariants belong in the
+project's executable checks, not universal rules in this skill.
+
+### Cross-component example
+
+Illustrative repository facts below must be confirmed from the actual project
+before dispatch; the paths, commands, and conflict policy are not universal.
+
+- **Outcome:** Rename the request field `name` to `display_name` while preserving
+  supported clients of `POST /profiles`.
+- **Scope and settled decisions:** One PR changes request validation and endpoint
+  handling. The parent retains client migration and eventual removal of `name`.
+  Assume Astra has confirmed that conflicting values must return HTTP 400 before
+  any write; if that policy is unsettled, resolve it before dispatch.
+- **Success:** Given an existing client sending `{"name":"Ada"}`, when it calls
+  `POST /profiles`, the response and stored profile equal those produced by
+  `{"display_name":"Ada"}` under otherwise identical starting conditions.
+- **Failure:** Given `{"name":"Ada","display_name":"Grace"}`, when the request
+  enters the maintained endpoint, it returns HTTP 400 and creates no profile.
+- **Acceptance boundary:** Astra inspects `api/profiles.py`, its request validator,
+  and `tests/integration/test_profiles.py`, then approves scenarios and the plan
+  against those contracts. Exercise validation through the endpoint and storage
+  path; testing only a field-renaming helper does not prove compatibility.
+- **Verification:** In this example repository, run
+  `pytest tests/integration/test_profiles.py` and the required `pytest` suite.
+  Portable fixtures prove request/response behavior with test storage; the
+  database integration cases require a disposable PostgreSQL service and
+  `TEST_DATABASE_URL`. Record unavailable cases as skips, not passes. Test storage
+  alone does not establish PostgreSQL persistence behavior. Link the resulting
+  tests in the delivery evidence. Astra personally reviews the final PR; merge
+  requires authorization.
+
+### Simple isolated example
+
+This hypothetical typo illustrates the lightweight path; it is not a claim of an
+existing defect in this repository.
+
+- **Outcome and scope:** Correct `contributer` to `contributor` in the README's
+  introductory prose in one PR. No command, model identifier, or runtime behavior
+  changes; no parent scope remains.
+- **Acceptance:** The spelling is correct and the diff contains only that prose
+  correction. A changed executable example is out of scope and must be reverted
+  before delivery. Astra checks the current README and open/merged work first;
+  if already corrected, report that evidence rather than create a duplicate PR.
+- **Verification:** Run `git diff --check`, inspect `git diff -- README.md`, and run
+  this repository's required `venv/bin/python -m unittest discover -s tests -v`
+  (requires its Python virtual environment). The diff proves the prose-only scope;
+  the existing suite checks helpers, not editorial correctness. No new test or
+  separate investigation is needed. Astra personally reviews the final revision
+  before an authorized merge.
+
+## Evaluate a later trial
+
+Use a subsequent real task to assess whether the approved scenarios and actual
+acceptance boundary guided implementation and final review. Retain the accepted
+issue, final test/evidence links, review findings, and any remaining limitations.
+Classify each revision or continuation by its cause, allowing multiple categories
+when evidence warrants them:
+
+- **Implementation defect:** Delivered behavior violates the accepted contract;
+  identify the failed scenario and correction.
+- **Step-limit continuation:** The invocation exhausted its budget with work left;
+  record completed artifacts and remaining work, without assuming a defect.
+- **Changed plan:** A new decision or changed scope required different work;
+  record the change rather than judge it against an obsolete contract.
+- **Prerequisite failure:** Missing authentication, services, fixtures, or other
+  resources prevented verification or delivery; identify what remains unproven.
+
+Report actual usage only when available, with its source and coverage. Neither
+fewer invocations nor shorter prompts establishes dollar savings. Do not infer
+implementation failure or wasted tokens from an extra run alone. A future trial
+is useful evidence, not a prerequisite for merging a verified skill improvement;
+keep historical issue/evidence records intact.
 
 ## Implementer
 
