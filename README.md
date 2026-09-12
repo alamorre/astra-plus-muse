@@ -8,7 +8,11 @@ issues → Muse implements one PR per issue → Astra personally reviews and ver
 the final revision → Astra merges when authorized.
 
 The aim is to spend expensive reasoning on decisions and review while delegating
-routine coding. Savings depend on the task, pricing, and rework; no percentage is
+routine coding. Delegated Muse work defaults to **extra high (`xhigh`) reasoning**;
+a different effort requires an explicit override. Verify model/account access first:
+Contributor at max can require an active Muse Code subscription. See the
+[reasoning configuration](skills/astra-plus-muse/references/cli.md#reasoning-configuration).
+Savings depend on the task, pricing, and rework; no percentage is
 promised. Astra sees completed PRs and explicit blockers: worker logs stay on disk,
 with completion notifications preferred and status-only checks roughly every ten
 minutes when polling is unavoidable. No continuous transcript watching.

@@ -19,7 +19,9 @@ if sys.argv[1:] == ["exec", "--help"]:
     sys.exit(0)
 pathlib.Path(os.environ["CAPTURE"]).write_text(json.dumps(sys.argv[1:]))
 print(json.dumps({{"type": "completed", "cwd": os.getcwd()}}))
-print("worker diagnostic", file=sys.stderr)
+with pathlib.Path(os.environ["CAPTURE"] + ".calls").open("a") as calls:
+    calls.write("called\\n")
+print(os.environ.get("WORKER_DIAGNOSTIC", "worker diagnostic"), file=sys.stderr)
 sys.exit(int(os.environ.get("WORKER_EXIT", "0")))
 '''
 
@@ -55,7 +57,7 @@ class LauncherTests(unittest.TestCase):
         args = json.loads(self.capture.read_text())
         self.assertEqual(args, [
             "exec", "--yolo", "--model", "muse-spark-1.3-contributor",
-            "--reasoning-effort", "medium", "--max-model-steps", "40",
+            "--reasoning-effort", "xhigh", "--max-model-steps", "40",
             "--max-tool-output-bytes", "12000", "--workspace", str(self.workspace),
             "--prompt-file", str(self.prompt), "--json",
         ])
@@ -72,6 +74,20 @@ class LauncherTests(unittest.TestCase):
         self.assertEqual(result.returncode, 7)
         self.assertEqual(json.loads((self.output / "result.json").read_text())["returncode"], 7)
         self.assertTrue((self.output / "events.jsonl").is_file())
+
+    def test_rejected_max_preserves_failure_without_retry_or_downgrade(self):
+        diagnostic = ("API error 400: reasoning_effort max requires an active "
+                      "Muse Code subscription for model muse-spark-1.3-contributor")
+        self.env.update(WORKER_EXIT="1", WORKER_DIAGNOSTIC=diagnostic)
+        result = self.run_launcher("--reasoning-effort", "max")
+        self.assertEqual(result.returncode, 1)
+        invocation = json.loads((self.output / "invocation.json").read_text())["argv"]
+        self.assertEqual(invocation[invocation.index("--reasoning-effort") + 1], "max")
+        self.assertEqual(invocation[invocation.index("--model") + 1],
+                         "muse-spark-1.3-contributor")
+        self.assertEqual(json.loads((self.output / "result.json").read_text())["returncode"], 1)
+        self.assertIn(diagnostic, (self.output / "stderr.log").read_text())
+        self.assertEqual(Path(str(self.capture) + ".calls").read_text().splitlines(), ["called"])
 
     def test_existing_attempt_is_not_overwritten_or_relaunched(self):
         self.output.mkdir()

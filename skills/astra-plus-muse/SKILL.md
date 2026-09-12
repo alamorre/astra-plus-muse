@@ -1,6 +1,6 @@
 ---
 name: astra-plus-muse
-description: Orchestrate Muse 1.3 Spark through its CLI in YOLO mode for GitHub issue planning and implementation, with Astra owning strategic decisions, escalations, personal PR review, and authorized merges. Use for cost-conscious delegation of a development backlog or feature into small PRs.
+description: Orchestrate Muse 1.3 Spark through its CLI in YOLO mode for GitHub issue planning and implementation, with Astra owning strategic decisions, escalations, personal PR review, and authorized merges. Use for capability-first delegation of a development backlog or feature into small PRs.
 ---
 
 # Astra plus Muse
@@ -47,11 +47,22 @@ publishing, so design assumptions and duplicates can be resolved cheaply.
 
 Astra reviews the proposal for architecture, domain meaning, compatibility,
 high-impact risks, and sequencing. Resolve strategic questions before assigning
-implementation. A task is ready for Muse when it has one observable outcome,
+implementation. Check existing behavior and open/merged issues and PRs before
+proposing new implementation; do not create duplicate work to demonstrate a
+template. A task is ready for Muse when it has one observable outcome,
 explicit non-goals, acceptance criteria, concrete verification commands, and no
 unresolved design fork. Split cross-cutting changes along a testable seam; a small
 line count alone does not make a task simple. A difficult investigation can be a
 bounded evidence-gathering issue whose conclusions return to Astra.
+
+For work crossing existing component contracts, Astra must inspect the existing
+acceptance boundary and write or personally approve concrete success/failure
+scenarios, scope, and verification before dispatch. Check that the proposed plan
+agrees with those contracts; investigate unknown behavior rather than inventing a
+requirement. Use [the issue contract and examples](references/handoffs.md#issue).
+Keep broad outcomes in parents and implementation scenarios in bounded children.
+Simple isolated changes can use a short outcome, scope, and relevant check without
+an extra planning run, mandatory investigation, or universal test-first process.
 
 After Astra accepts the batch, have Muse create the approved GitHub issues using
 [the issue contract](references/handoffs.md#issue). Search open issues/PRs first;
@@ -76,8 +87,17 @@ instructions when the installed integration supports that; the verified CLI uses
 the contract to the task prompt and do not claim system-level enforcement.
 
 Use [the CLI reference](references/cli.md) to run the bundled launcher or invoke
-Muse directly. Set the model and run limits explicitly. Start with medium reasoning
-for routine work; raise it only for a justified bounded attempt. Keep full logs
+Muse directly. Set the model and run limits explicitly. Default to **extra high (`xhigh`) reasoning**
+for planning, implementation, and revisions. Preserve a deliberate user/coordinator
+override; do not lower effort automatically for price or routine-task classification.
+Verify that the selected model/account supports the requested effort before
+relying on it. An unavailable effort or subscription entitlement is a prerequisite
+failure: retain the evidence and resolve access before dispatching more work,
+without silently downgrading or switching model tiers. A CLI accepting a flag or
+exiting successfully does not prove the backend honored the effort; report any
+fallback warning and distinguish requested from effective settings when exposed.
+See [reasoning configuration](references/cli.md#reasoning-configuration) for the
+evidence and compatibility check. Keep full logs
 local and return concise evidence. Model-step limits control a single invocation,
 not dollars, wall time, subprocess duration, or a whole multi-run task.
 
@@ -124,7 +144,10 @@ When a run simply reaches its limit, inspect its artifacts and supply a continua
 with the precise remaining work and a new explicit budget. Do not restart completed
 research or repeat successful full checks unless changes invalidate them. No
 automatic retry loop. Report actual usage when available; do not promise a savings
-percentage or invent costs from step counts.
+percentage or invent costs from step counts. Evaluate later trials using
+[the trial guidance](references/handoffs.md#evaluate-a-later-trial), separating
+implementation defects from limit continuations, changed plans, and prerequisite
+failures; fewer runs or shorter prompts alone do not establish dollar savings.
 
 ## Astra personally reviews and signs off
 
